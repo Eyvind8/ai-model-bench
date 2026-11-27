@@ -1,0 +1,31 @@
+services:
+  app:
+    build:
+      context: ./docker/php
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    image: ai-model-bench-php
+    volumes:
+      - ./:/var/www/html
+    restart: unless-stopped
+
+  web:
+    image: nginx:alpine
+    ports:
+      - "127.0.0.1:${BENCH_PORT:-8011}:80"
+    volumes:
+      - ./:/var/www/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  worker:
+    image: ai-model-bench-php
+    command: php artisan queue:work --tries=1 --timeout=120 --sleep=1
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      - app
+    restart: unless-stopped

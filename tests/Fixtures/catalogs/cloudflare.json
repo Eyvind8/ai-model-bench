@@ -1,0 +1,5 @@
+{"success":true,"errors":[],"messages":[],"result":[
+ {"id":"a1","name":"@cf/meta/llama-3.3-70b-instruct-fp8-fast","description":"Llama 3.3 70B","task":{"name":"Text Generation"},
+  "properties":[{"property_id":"context_window","value":"24000"},{"property_id":"function_calling","value":"true"}]},
+ {"id":"a2","name":"@cf/qwen/qwen3-30b-a3b-fp8","description":"Qwen3 30B","task":{"name":"Text Generation"},"properties":[]}
+],"result_info":{"count":2,"page":1,"per_page":100,"total_count":2}}
