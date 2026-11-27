@@ -31,7 +31,7 @@
 
 - PHP 8.3, Laravel 12.
 - HTTP: Guzzle (через Laravel HTTP Client).
-- БД: SQLite (`database/bench.sqlite`). **Без Laravel-міграцій** - схема в `database/schema.sql`, накатується вручну (`sqlite3 database/bench.sqlite < database/schema.sql`).
+- БД: SQLite (`database/database.sqlite`). **Без Laravel-міграцій** - схема в `database/schema.sql`, накатується `make db-init`.
 - Черги: `database` driver (прогони виконуються воркером у фоні).
 - UI: Blade + Alpine.js + Tailwind (CDN або Vite), графіки - Chart.js.
 - Тести: Pest/PHPUnit, `Http::fake()` для провайдерів.
@@ -43,6 +43,17 @@
 
 Усі чотири підтримують OpenAI-сумісний `POST {base_url}/chat/completions`, тому один клієнт + конфіг на провайдера.
 
+### 4.0 Підключення через конфіг (масштабованість)
+
+Єдина точка підключення - `config/bench.php`:
+
+- `drivers.clients` - мапа `назва драйвера => клас` (`LlmClientInterface`). Зараз `openai` (OpenAI-сумісний протокол). Новий протокол (Anthropic, native Gemini) = новий клас + рядок у мапі.
+- `drivers.catalogs` - мапа драйверів автопошуку моделей (`ModelCatalogInterface`): `openai`, `openrouter`, `cloudflare`.
+- `providers.<code>` - провайдер: `driver`, `catalog` (або `null`), `base_url`, `api_key`, `headers`, `exclude`, `limits`, `model_limits`, `models`.
+- `providers.<code>.models` - **моделі підключаються тут**: `model_id => [name, context_window, json, free, enabled, limits]`.
+
+Новий провайдер або модель = запис у конфігу, без змін у коді. `bench:models:sync` переносить конфіг у БД (`source=config`, увімкнені за замовчуванням). `bench:models:sync --discover` додатково тягне каталоги провайдерів (`source=catalog`, вимкнені за замовчуванням) - щоб знайти нові ID і перенести потрібні в конфіг. Модель, видалена з конфігу/каталогу, стає `available=0`, історія результатів зберігається.
+
 | Провайдер | `base_url` | Ключ у `.env` | Список моделей |
 | --- | --- | --- | --- |
 | Google AI Studio | `https://generativelanguage.googleapis.com/v1beta/openai` | `GEMINI_API_KEY` | `GET /models` |
@@ -50,7 +61,7 @@
 | OpenRouter | `https://openrouter.ai/api/v1` | `OPENROUTER_API_KEY` | `GET /models`, фільтр `:free` / `pricing.prompt == 0` |
 | Cloudflare Workers AI | `https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/v1` | `CF_API_TOKEN`, `CF_ACCOUNT_ID` | `GET /accounts/{id}/ai/models/search?task=Text Generation` |
 
-**Важливо:** ID моделей зі списку-джерела (`gemini-3.5-flash-lite`, `llama-4-scout-...` тощо) не хардкодимо. Команда `bench:models:sync` тягне актуальний список з API і зберігає в БД. Користувач вмикає/вимикає моделі в UI.
+**Важливо:** ID моделей зі списку-джерела (`gemini-3.5-flash-lite`, `llama-4-scout-...` тощо) не перевірені - стартовий набір у конфігу, перевірка через `bench:models:ping`, актуальні ID через `--discover`.
 
 ### 4.1 Ліміти (стартові значення, редагуються в конфігу/UI)
 
@@ -301,7 +312,9 @@ CRUD у UI. Плейсхолдери в `user_template`: `{{input}}`, `{{title}}
 ## 9. CLI (artisan)
 
 ```
-bench:models:sync [--provider=gemini]          # оновити список моделей
+bench:models:sync [--provider=gemini] [--discover]  # конфіг -> БД, --discover: + каталоги API
+bench:models:list [--provider=] [--enabled]
+bench:models:enable {patterns*} [--disable]    # напр. groq:qwen/* або *flash*
 bench:models:ping [--provider=] [--model=]     # перевірити доступність і ключі
 bench:dataset:import {file} --name=            # CSV/JSON/JSONL
 bench:dataset:fetch-urls {dataset_id} {file|url...}  # імпорт статей за URL
@@ -317,16 +330,18 @@ bench:limits                                   # поточні залишки �
 ```
 app/
   Contracts/
-    LlmClientInterface.php          # chat(ChatRequest): ChatResponse
-    ModelCatalogInterface.php       # listModels(Provider): ModelInfo[]
+    LlmClientInterface.php          # chat(ProviderConfig, ChatRequest): ChatResponse
+    ModelCatalogInterface.php       # listModels(ProviderConfig): ModelInfo[]
     RateLimiterInterface.php
     ResponseParserInterface.php
     MetricInterface.php             # compute(Result): ?Evaluation
     JudgeInterface.php
   Llm/
-    OpenAiCompatibleClient.php      # один клієнт для всіх 4 провайдерів
-    ProviderConfig.php              # readonly DTO: base_url, key, headers
-    ProviderRegistry.php            # code -> config/catalog
+    OpenAiCompatibleClient.php      # драйвер `openai` для всіх 4 провайдерів
+    ProviderHttp.php                # auth, таймаути, мапінг помилок, маскування ключа
+    ProviderConfig.php              # readonly DTO провайдера з конфігу
+    ProviderRegistry.php            # config/bench.php providers -> ProviderConfig
+    DriverResolver.php              # назва драйвера -> клас з bench.drivers
     Catalogs/
       OpenAiModelsCatalog.php       # Gemini, Groq
       OpenRouterCatalog.php         # фільтр free
@@ -361,12 +376,12 @@ app/
     ExecuteRunItemJob.php           # одна пара (item × model × attempt)
     FetchArticleJob.php
   Enums/
-    ProviderCode.php, RunStatus.php, ResultStatus.php, ResponseFormat.php, EvaluationType.php
+    ModelSource.php, RunStatus.php, ResultStatus.php, ResponseFormat.php, EvaluationType.php
 ```
 
 Правила:
 - Залежності тільки через конструктор, на інтерфейси.
-- Новий провайдер = конфіг + (за потреби) новий Catalog. Клієнт не змінюється.
+- Новий провайдер/модель = тільки конфіг. Новий протокол = новий клас драйвера + рядок у `bench.drivers`.
 - Нова метрика = новий клас `MetricInterface`, реєстрація в `MetricRegistry`.
 - Контролери тонкі: валідація (FormRequest) → сервіс → view.
 - Кожен запит/відповідь зберігається повністю (`request_json`, `raw_response`) для відтворюваності; `scenario_snapshot` фіксує промпт на момент прогону.
@@ -385,7 +400,7 @@ app/
 | Сервіс | Образ | Роль |
 | --- | --- | --- |
 | `app` | свій `Dockerfile` на `php:8.3-fpm-alpine` (ext: pdo_sqlite, intl, mbstring, dom, zip, opcache) + composer | Laravel |
-| `web` | `nginx:alpine` | віддає UI на `http://localhost:8099` |
+| `web` | `nginx:alpine` | віддає UI на `http://localhost:8011` |
 | `worker` | той самий образ, що `app` | `php artisan queue:work --tries=1 --timeout=120` |
 
 - Код монтується volume-ом (dev), SQLite-файл у `./database` - переживає перезапуск.
@@ -411,7 +426,7 @@ app/
 
 ## 14. Критерії приймання MVP
 
-- `make up && make db-init` піднімає стенд з нуля, UI відкривається на `localhost:8099`.
+- `make up && make db-init` піднімає стенд з нуля, UI відкривається на `localhost:8011`.
 - `bench:models:sync` підтягує моделі всіх 4 провайдерів при наявності ключів; без ключа провайдер пропускається з попередженням.
 - Імпорт 20 URL новинних статей: для звичайних сайтів текст очищено коректно, сторінки з paywall/JS позначені `failed` з причиною і доступні для ручного заповнення.
 - На розміченому датасеті порівняльна таблиця показує MAE, within_1, Spearman, bias і top-K по кожній моделі.

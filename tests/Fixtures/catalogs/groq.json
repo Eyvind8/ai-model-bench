@@ -1,0 +1,7 @@
+{"object":"list","data":[
+ {"id":"meta-llama/llama-4-scout-17b-16e-instruct","object":"model","owned_by":"Meta","active":true,"context_window":131072},
+ {"id":"qwen/qwen3-32b","object":"model","owned_by":"Alibaba Cloud","active":true,"context_window":131072},
+ {"id":"whisper-large-v3","object":"model","owned_by":"OpenAI","active":true,"context_window":448},
+ {"id":"meta-llama/llama-guard-4-12b","object":"model","owned_by":"Meta","active":true,"context_window":131072},
+ {"id":"old-model","object":"model","owned_by":"x","active":false,"context_window":8192}
+]}
