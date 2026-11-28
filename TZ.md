@@ -227,7 +227,7 @@ CREATE TABLE pairwise_votes (                   -- сліпе порівнянн
 - Параметри: `temperature=0.2`, `max_tokens=300`.
 
 ### 6.2 Користувацькі сценарії
-CRUD у UI. Плейсхолдери в `user_template`: `{{input}}`, `{{title}}`, `{{meta.*}}`.
+Сценарії описуються в `config/scenarios.php` (як і моделі) і синхронізуються в БД `bench:scenarios:sync`; CRUD в UI - етап 3. Плейсхолдери в `user_template`: `{{input}}`, `{{title}}`, `{{url}}`, `{{meta.*}}`. Автометрики сценарію - `metrics: label => [metric => <назва з bench.metrics>, ...опції]`, нова метрика = клас `MetricInterface` + рядок у `bench.metrics`.
 
 ### 6.3 Імпорт статей за URL
 - Вхід: один URL, список URL (textarea / файл), або CSV з колонками `url,expected_score`.

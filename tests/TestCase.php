@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Contracts\HostResolverInterface;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
@@ -17,6 +18,20 @@ abstract class TestCase extends BaseTestCase
     protected function jsonFixture(string $path): array
     {
         return json_decode($this->fixture($path), true, flags: JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * DNS stub: every host is public except *.internal.test (private IP).
+     */
+    protected function fakeDns(): void
+    {
+        $this->app->instance(HostResolverInterface::class, new class implements HostResolverInterface
+        {
+            public function resolve(string $host): array
+            {
+                return str_ends_with($host, 'internal.test') ? ['10.0.0.5'] : ['93.184.216.34'];
+            }
+        });
     }
 
     /**

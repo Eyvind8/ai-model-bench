@@ -5,7 +5,7 @@ DB  = database/database.sqlite
 export UID := $(shell id -u)
 export GID := $(shell id -g)
 
-.PHONY: help build up down restart logs sh db-init db-reset test lint stan check sync discover ping models
+.PHONY: help build up down restart logs sh db-init db-reset test lint stan check sync discover ping models limits runs
 
 help: ## Show commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -31,7 +31,7 @@ sh: ## Shell in app container
 db-init: ## Create SQLite DB from database/schema.sql if missing, then sync models
 	@if [ -f $(DB) ] && [ -s $(DB) ]; then echo "$(DB) exists, skip (use make db-reset)"; \
 	else $(RUN) sh -c 'sqlite3 $(DB) < database/schema.sql' && echo "created $(DB)"; fi
-	$(RUN) php artisan bench:models:sync
+	$(MAKE) sync
 
 db-reset: ## DROP all data: recreate DB from schema.sql
 	@read -p "Delete $(DB) with all results? [y/N] " ans && [ "$$ans" = "y" ]
@@ -49,8 +49,9 @@ stan: ## Static analysis (Larastan)
 
 check: lint stan test ## Lint + stan + tests
 
-sync: ## Sync providers/models from config/bench.php
+sync: ## Sync models (config/bench.php) and scenarios (config/scenarios.php)
 	$(RUN) php artisan bench:models:sync
+	$(RUN) php artisan bench:scenarios:sync
 
 discover: ## Sync + discover models from provider catalog APIs
 	$(RUN) php artisan bench:models:sync --discover
@@ -60,3 +61,9 @@ ping: ## Ping enabled models
 
 models: ## List models
 	$(RUN) php artisan bench:models:list
+
+limits: ## Remaining free-tier quota of enabled models
+	$(RUN) php artisan bench:limits
+
+runs: ## Recent runs
+	$(RUN) php artisan bench:runs
