@@ -3,7 +3,7 @@
 namespace App\Runs\Execution;
 
 /**
- * Extracts the JSON object from a model reply: strips <think> blocks, ```json fences
+ * Extracts the JSON object from a model reply: strips reasoning blocks (<think>, <thought>, <thinking>, any case, also unclosed), ```json fences
  * and text around the first balanced {...}.
  */
 final class JsonResponseParser
@@ -17,7 +17,9 @@ final class JsonResponseParser
             return null;
         }
 
-        $content = trim((string) preg_replace('#<think>.*?</think>#s', '', $content));
+        $content = (string) preg_replace('#<(think|thought|thinking)>.*?</\1>#si', '', $content);
+        // unclosed block (cut by max_tokens): drop everything after it, a draft inside is not the answer
+        $content = trim((string) preg_replace('#<(think|thought|thinking)>.*$#si', '', $content));
         if ($this->isObject($content)) {
             return $content;
         }

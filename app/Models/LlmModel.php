@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property ModelSource $source
  * @property bool $available
  * @property bool $enabled
+ * @property bool $enabled_by_user
  * @property array<string, mixed>|null $limits_json
  * @property CarbonImmutable|null $synced_at
  * @property-read Provider $provider
@@ -31,7 +32,7 @@ class LlmModel extends Model
 
     protected $fillable = [
         'provider_id', 'model_id', 'display_name', 'context_window', 'supports_json',
-        'is_free', 'source', 'available', 'enabled', 'limits_json', 'synced_at',
+        'is_free', 'source', 'available', 'enabled', 'enabled_by_user', 'limits_json', 'synced_at',
     ];
 
     protected function casts(): array
@@ -43,6 +44,7 @@ class LlmModel extends Model
             'source' => ModelSource::class,
             'available' => 'boolean',
             'enabled' => 'boolean',
+            'enabled_by_user' => 'boolean',
             'limits_json' => 'array',
             'synced_at' => 'immutable_datetime',
         ];

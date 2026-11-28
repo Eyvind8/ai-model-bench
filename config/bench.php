@@ -61,8 +61,8 @@ return [
     |                   name, context_window, json (supports response_format),
     |                   free (default true), enabled (default true), limits
     |
-    | Model IDs below come from the initial research and may be outdated:
-    | check them with `bench:models:ping`, discover current ones with `--discover`.
+    | Model IDs are checked with `bench:models:ping` (2026-11-28); catalogs change,
+    | discover current ones with `--discover`.
     |
     */
     'providers' => [
@@ -102,8 +102,9 @@ return [
             'limits' => ['rpm' => 30, 'rpd' => 1000, 'tpm' => 6000, 'min_interval_ms' => 2000],
             'model_limits' => [],
             'models' => [
-                'meta-llama/llama-4-scout-17b-16e-instruct' => ['name' => 'Llama 4 Scout', 'json' => true],
-                'qwen/qwen3-32b' => ['name' => 'Qwen3 32B', 'json' => true],
+                'openai/gpt-oss-120b' => ['name' => 'GPT-OSS 120B', 'context_window' => 131072],
+                'openai/gpt-oss-20b' => ['name' => 'GPT-OSS 20B', 'context_window' => 131072],
+                'qwen/qwen3.8-27b' => ['name' => 'Qwen 3.8 27B', 'context_window' => 131072],
             ],
         ],
 
@@ -115,11 +116,13 @@ return [
             'api_key' => env('OPENROUTER_API_KEY'),
             'api_key_env' => 'OPENROUTER_API_KEY',
             'headers' => ['X-Title' => 'AI Model Bench'],
-            'exclude' => [],
+            'exclude' => ['/lyria/i'],
             'limits' => ['rpm' => 20, 'rpd' => 50, 'tpm' => null, 'min_interval_ms' => 3000],
             'model_limits' => [],
+            // `openrouter/free` (auto-routing) is not used: a different model answers every time.
             'models' => [
-                'openrouter/free' => ['name' => 'OpenRouter auto (free)'],
+                'baidu/ernie-5.5-flash-preview:free' => ['name' => 'ERNIE 5.5 Flash (free)', 'json' => true],
+                'nvidia/nemotron-3-ultra-550b-a55b:free' => ['name' => 'Nemotron 3 Ultra (free)', 'json' => false],
             ],
         ],
 

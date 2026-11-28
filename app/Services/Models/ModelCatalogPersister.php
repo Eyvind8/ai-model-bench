@@ -12,8 +12,9 @@ use Illuminate\Support\Collection;
 /**
  * Upserts a list of models of one source into the `models` table.
  *
- * Rules: user-controlled `enabled` is never overwritten; config models win over
- * catalog ones; models missing from their source become unavailable.
+ * Rules: config models win over catalog ones; models missing from their source become unavailable;
+ * `enabled` set manually (enabled_by_user) is never overwritten. The only automatic change of `enabled`:
+ * a catalog model the user never touched takes the config's enabled state when it is added to config.
  */
 final class ModelCatalogPersister
 {
@@ -81,8 +82,13 @@ final class ModelCatalogPersister
         ]);
     }
 
+    /**
+     * A catalog model just added to config takes the config's enabled state, unless the user set it manually.
+     */
     private function update(LlmModel $model, ModelInfo $info, ModelSource $source, CarbonImmutable $now): void
     {
+        $promotedToConfig = $source === ModelSource::Config && $model->source !== ModelSource::Config && ! $model->enabled_by_user;
+
         $model->update([
             'display_name' => $info->displayName ?? $model->display_name,
             'context_window' => $info->contextWindow ?? $model->context_window,
@@ -91,6 +97,7 @@ final class ModelCatalogPersister
             'source' => $source,
             'available' => true,
             'synced_at' => $now,
+            ...($promotedToConfig ? ['enabled' => $info->enabled] : []),
         ]);
     }
 
