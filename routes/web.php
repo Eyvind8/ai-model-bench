@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\ArenaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DatasetController;
 use App\Http\Controllers\DatasetItemController;
+use App\Http\Controllers\JudgeController;
 use App\Http\Controllers\LabelingController;
 use App\Http\Controllers\ModelController;
 use App\Http\Controllers\ResultController;
@@ -56,6 +58,11 @@ Route::controller(RunController::class)->prefix('runs')->name('runs.')->group(fu
     Route::post('{run}/cancel', 'cancel')->name('cancel');
     Route::get('{run}/export', 'export')->name('export');
 });
+
+Route::post('runs/{run}/judge', [JudgeController::class, 'store'])->name('runs.judge');
+Route::get('runs/{run}/arena', [ArenaController::class, 'show'])->name('runs.arena');
+Route::post('runs/{run}/arena', [ArenaController::class, 'vote'])->name('runs.arena.vote');
+Route::get('arena', [ArenaController::class, 'index'])->name('arena.index');
 
 Route::controller(ResultController::class)->prefix('results')->name('results.')->group(function () {
     Route::get('{result}', 'show')->name('show');

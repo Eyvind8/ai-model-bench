@@ -55,7 +55,7 @@
         <a href="{{ route('dashboard') }}" class="font-semibold mr-4 whitespace-nowrap">AI Model Bench</a>
         @foreach ([
             'dashboard' => 'Огляд', 'models.index' => 'Моделі', 'scenarios.index' => 'Сценарії',
-            'datasets.index' => 'Датасети', 'playground' => 'Playground', 'runs.index' => 'Прогони',
+            'datasets.index' => 'Датасети', 'playground' => 'Playground', 'runs.index' => 'Прогони', 'arena.index' => 'Арена',
         ] as $route => $label)
             @php($active = request()->routeIs(str_replace('.index', '', $route).'*'))
             <a href="{{ route($route) }}" class="px-3 py-1.5 rounded-md whitespace-nowrap {{ $active ? 'font-semibold' : 'muted' }}"

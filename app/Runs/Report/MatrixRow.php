@@ -27,17 +27,27 @@ final readonly class MatrixRow
         return $this->cells[$modelId] ?? [];
     }
 
-    public function meanScore(int $modelId, ?string $field): ?float
+    /**
+     * Numeric scores of all attempts of a model.
+     *
+     * @return list<float>
+     */
+    public function scores(int $modelId, ?string $field): array
     {
         if ($field === null) {
-            return null;
+            return [];
         }
 
-        $scores = array_values(array_filter(
+        $scores = array_filter(
             array_map(fn (Result $r) => $r->parsed_json[$field] ?? null, $this->results($modelId)),
             'is_numeric',
-        ));
+        );
 
-        return Stats::mean(array_map('floatval', $scores));
+        return array_values(array_map('floatval', $scores));
+    }
+
+    public function meanScore(int $modelId, ?string $field): ?float
+    {
+        return Stats::mean($this->scores($modelId, $field));
     }
 }

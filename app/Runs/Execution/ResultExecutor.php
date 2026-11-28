@@ -2,27 +2,19 @@
 
 namespace App\Runs\Execution;
 
-use App\Contracts\RateLimiterInterface;
 use App\Enums\ResultStatus;
-use App\Llm\DriverResolver;
 use App\Llm\Dto\ChatRequest;
-use App\Llm\Exceptions\ProviderException;
-use App\Llm\ProviderConfig;
-use App\Llm\ProviderRegistry;
+use App\Llm\LimitedChatCaller;
 use App\Models\Result;
-use App\RateLimit\TokenEstimator;
 use App\Runs\RunProgress;
 
 /**
- * Executes one pending result: rate limit check, provider call, recording.
+ * Executes one pending result: rate-limited provider call, then recording.
  */
 final class ResultExecutor
 {
     public function __construct(
-        private readonly ProviderRegistry $registry,
-        private readonly DriverResolver $drivers,
-        private readonly RateLimiterInterface $limiter,
-        private readonly TokenEstimator $tokens,
+        private readonly LimitedChatCaller $caller,
         private readonly ResultRecorder $recorder,
         private readonly FailureResolver $failures,
         private readonly RunProgress $progress,
@@ -50,35 +42,18 @@ final class ResultExecutor
 
     private function attempt(Result $result): ?int
     {
-        $code = $result->model->provider->code;
-        if (! $this->registry->has($code)) {
-            $this->recorder->failure($result, ResultStatus::Error, "Provider {$code} is not in config anymore");
+        $outcome = $this->caller->call($result->model->provider->code, ChatRequest::fromPayload($result->request_json));
 
-            return null;
+        if ($outcome->waitMs !== null) {
+            return $outcome->waitMs;
+        }
+        if ($outcome->error !== null && $outcome->provider !== null) {
+            return $this->failures->resolve($result, $outcome->provider, $outcome->error);
         }
 
-        $provider = $this->registry->get($code);
-        $request = ChatRequest::fromPayload($result->request_json);
-        $decision = $this->limiter->acquire($provider, $request->model, $this->tokens->estimate($request));
-
-        if ($decision->exhausted) {
-            $this->recorder->failure($result, ResultStatus::RateLimited, (string) $decision->reason);
-
-            return null;
-        }
-
-        return $decision->allowed ? $this->call($result, $provider, $request) : $decision->waitMs;
-    }
-
-    private function call(Result $result, ProviderConfig $provider, ChatRequest $request): ?int
-    {
-        try {
-            $response = $this->drivers->client($provider)->chat($provider, $request);
-        } catch (ProviderException $e) {
-            return $this->failures->resolve($result, $provider, $e);
-        }
-
-        $this->recorder->success($result, $response, $result->run->definition());
+        $outcome->response !== null
+            ? $this->recorder->success($result, $outcome->response, $result->run->definition())
+            : $this->recorder->failure($result, $outcome->exhausted ? ResultStatus::RateLimited : ResultStatus::Error, (string) $outcome->refusal);
 
         return null;
     }

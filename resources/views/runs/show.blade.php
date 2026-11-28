@@ -37,6 +37,7 @@
     </div>
 
     @include('runs._report')
+    @include('runs._quality')
     @include('runs._latency')
     @if ($matrix->hasScores() && $run->dataset)
         @include('runs._heatmap')
