@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS models (
     source         TEXT NOT NULL DEFAULT 'catalog', -- config | catalog
     available      INTEGER NOT NULL DEFAULT 1,  -- 0 = removed from config / provider catalog
     enabled        INTEGER NOT NULL DEFAULT 0,
+    enabled_by_user INTEGER NOT NULL DEFAULT 0, -- 1 = enabled flag was set manually (UI/CLI), sync must not touch it
     limits_json    TEXT,
     synced_at      TEXT,
     created_at     TEXT NOT NULL,

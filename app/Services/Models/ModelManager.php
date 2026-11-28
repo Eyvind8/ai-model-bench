@@ -35,7 +35,7 @@ final class ModelManager
         $models = $this->selector->select($patterns);
 
         if ($models->isNotEmpty()) {
-            LlmModel::query()->whereKey($models->modelKeys())->update(['enabled' => $enabled]);
+            LlmModel::query()->whereKey($models->modelKeys())->update(['enabled' => $enabled, 'enabled_by_user' => true]);
         }
 
         return $models;
@@ -43,7 +43,7 @@ final class ModelManager
 
     public function toggle(LlmModel $model): bool
     {
-        $model->update(['enabled' => ! $model->enabled]);
+        $model->update(['enabled' => ! $model->enabled, 'enabled_by_user' => true]);
 
         return $model->enabled;
     }

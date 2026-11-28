@@ -6,6 +6,7 @@ use App\Enums\ModelSource;
 use App\Enums\SyncStatus;
 use App\Models\LlmModel;
 use App\Models\Provider;
+use App\Services\Models\ModelManager;
 use App\Services\Models\ModelSyncService;
 use App\Services\Models\SyncReport;
 use Illuminate\Support\Facades\Http;
@@ -81,6 +82,47 @@ class ModelSyncServiceTest extends TestCase
         $this->sync();
 
         $this->assertFalse($this->model('qwen/qwen3-32b')->enabled);
+    }
+
+    public function test_catalog_model_moved_into_config_gets_config_enabled_state(): void
+    {
+        Http::fake(['api.groq.com/*' => Http::response(['data' => [['id' => 'new/model']]])]);
+        $this->sync('groq', discover: true);
+        $this->assertFalse($this->model('new/model')->enabled);
+
+        config(['bench.providers.groq.models' => ['qwen/qwen3-32b' => [], 'new/model' => [], 'off/model' => ['enabled' => false]]]);
+        $this->sync('groq');
+
+        $this->assertTrue($this->model('new/model')->enabled);
+        $this->assertSame(ModelSource::Config, $this->model('new/model')->source);
+        $this->assertFalse($this->model('off/model')->enabled);
+    }
+
+    public function test_manual_disable_survives_removal_rediscovery_and_return_to_config(): void
+    {
+        $this->sync();
+        $this->app->make(ModelManager::class)->toggle($this->model('qwen/qwen3-32b'));
+        $this->assertFalse($this->model('qwen/qwen3-32b')->enabled);
+
+        config(['bench.providers.groq.models' => []]);
+        Http::fake(['api.groq.com/*' => Http::response(['data' => [['id' => 'qwen/qwen3-32b']]])]);
+        $this->sync('groq', discover: true);
+        config(['bench.providers.groq.models' => ['qwen/qwen3-32b' => []]]);
+        $this->sync('groq');
+
+        $this->assertFalse($this->model('qwen/qwen3-32b')->enabled);
+    }
+
+    public function test_manual_enable_of_catalog_model_survives_config_disabled_default(): void
+    {
+        Http::fake(['api.groq.com/*' => Http::response(['data' => [['id' => 'new/model']]])]);
+        $this->sync('groq', discover: true);
+        $this->app->make(ModelManager::class)->setEnabled(['groq:new/model'], true);
+
+        config(['bench.providers.groq.models' => ['new/model' => ['enabled' => false]]]);
+        $this->sync('groq');
+
+        $this->assertTrue($this->model('new/model')->enabled);
     }
 
     public function test_discover_adds_catalog_models_disabled_and_keeps_config_models(): void
