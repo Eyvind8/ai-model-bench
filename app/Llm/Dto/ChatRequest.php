@@ -20,6 +20,30 @@ final readonly class ChatRequest
     ) {}
 
     /**
+     * Inverse of toPayload(): restores a request stored in results.request_json.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public static function fromPayload(array $payload): self
+    {
+        $format = $payload['response_format']['type'] ?? null;
+
+        return new self(
+            model: (string) ($payload['model'] ?? ''),
+            messages: $payload['messages'] ?? [],
+            temperature: isset($payload['temperature']) ? (float) $payload['temperature'] : null,
+            maxTokens: isset($payload['max_tokens']) ? (int) $payload['max_tokens'] : null,
+            responseFormat: ResponseFormat::tryFrom((string) $format) ?? ResponseFormat::Text,
+            jsonSchema: $payload['response_format']['json_schema']['schema'] ?? null,
+        );
+    }
+
+    public function withoutResponseFormat(): self
+    {
+        return new self($this->model, $this->messages, $this->temperature, $this->maxTokens);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toPayload(): array

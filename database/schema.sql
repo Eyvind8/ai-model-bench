@@ -105,6 +105,9 @@ CREATE TABLE IF NOT EXISTS scenarios (
     json_schema     TEXT,
     params_json     TEXT,                       -- temperature, max_tokens, top_p
     judge_rubric    TEXT,
+    metrics_json    TEXT,                       -- auto metrics: name => {metric, ...options}
+    source          TEXT NOT NULL DEFAULT 'config', -- config | ui
+    available       INTEGER NOT NULL DEFAULT 1,
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL
 );
@@ -128,7 +131,7 @@ CREATE TABLE IF NOT EXISTS dataset_items (
     expected_announcement TEXT,
     expected_json         TEXT,
     meta_json             TEXT,
-    fetch_status          TEXT,                 -- ok | failed | manual | pending
+    fetch_status          TEXT,                 -- pending | ok | failed | manual (NULL = imported text)
     fetch_error           TEXT,
     created_at            TEXT NOT NULL,
     updated_at            TEXT NOT NULL
@@ -162,7 +165,7 @@ CREATE TABLE IF NOT EXISTS results (
     model_id          INTEGER NOT NULL REFERENCES models(id),
     dataset_item_id   INTEGER REFERENCES dataset_items(id),
     attempt_no        INTEGER NOT NULL DEFAULT 1,
-    status            TEXT NOT NULL,            -- ok | error | rate_limited | timeout
+    status            TEXT NOT NULL,            -- pending | ok | error | rate_limited
     request_json      TEXT NOT NULL,
     raw_response      TEXT,
     content           TEXT,

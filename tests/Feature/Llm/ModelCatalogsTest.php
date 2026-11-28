@@ -102,4 +102,36 @@ class ModelCatalogsTest extends TestCase
             $this->provider('groq', 'https://groq.test/openai/v1')
         );
     }
+
+    public function test_cloudflare_reads_all_pages(): void
+    {
+        $page = fn (string $name, int $page) => [
+            'success' => true,
+            'result' => [['name' => $name, 'properties' => []]],
+            'result_info' => ['page' => $page, 'per_page' => 1, 'total_pages' => 2, 'total_count' => 2],
+        ];
+        Http::fakeSequence('api.cf.test/*')->push($page('@cf/a', 1))->push($page('@cf/b', 2));
+
+        $models = $this->app->make(CloudflareCatalog::class)->listModels(
+            $this->provider('cloudflare', 'https://api.cf.test/client/v4/accounts/acc-1/ai/v1')
+        );
+
+        $this->assertSame(['@cf/a', '@cf/b'], $this->ids($models));
+        Http::assertSentCount(2);
+        Http::assertSent(fn (Request $r) => $r['page'] === 2);
+    }
+
+    public function test_cloudflare_pagination_is_bounded(): void
+    {
+        Http::fake(['api.cf.test/*' => Http::response([
+            'result' => [['name' => '@cf/a']],
+            'result_info' => ['page' => 1, 'total_pages' => 1000],
+        ])]);
+
+        $this->app->make(CloudflareCatalog::class)->listModels(
+            $this->provider('cloudflare', 'https://api.cf.test/client/v4/accounts/acc-1/ai/v1')
+        );
+
+        Http::assertSentCount(CloudflareCatalog::MAX_PAGES);
+    }
 }

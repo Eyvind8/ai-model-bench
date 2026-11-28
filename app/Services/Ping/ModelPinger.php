@@ -57,6 +57,11 @@ final class ModelPinger
             return new PingResult($target, PingStatus::Error, error: $e->getMessage());
         }
 
+        if (trim((string) $response->content) === '') {
+            return new PingResult($target, PingStatus::Empty, $response->latencyMs,
+                error: 'no text in reply, finish_reason: '.($response->finishReason ?? 'unknown'));
+        }
+
         return new PingResult($target, PingStatus::Ok, $response->latencyMs, $response->content);
     }
 

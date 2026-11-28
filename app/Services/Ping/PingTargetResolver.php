@@ -19,14 +19,17 @@ final class PingTargetResolver
      */
     public function resolve(?string $provider, ?string $modelRef): array
     {
-        return $modelRef !== null ? [$this->explicit($modelRef)] : $this->enabled($provider);
+        return $modelRef !== null ? [$this->explicit($modelRef, $provider)] : $this->enabled($provider);
     }
 
-    private function explicit(string $modelRef): PingTarget
+    private function explicit(string $modelRef, ?string $provider): PingTarget
     {
         $ref = ModelRef::parse($modelRef, $this->registry->codes());
         if ($ref->provider === null || $ref->model === '') {
             throw new InvalidArgumentException("Expected provider:model, got \"{$modelRef}\"");
+        }
+        if ($provider !== null && $provider !== $ref->provider) {
+            throw new InvalidArgumentException("--provider={$provider} conflicts with --model={$modelRef}");
         }
 
         return new PingTarget($this->registry->get($ref->provider), $ref->model);

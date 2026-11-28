@@ -46,8 +46,7 @@ final class ModelSyncService
 
     private function discover(Provider $provider, ProviderConfig $config, SyncCounts $counts): SyncReport
     {
-        $catalog = $this->drivers->catalog($config);
-        if ($catalog === null) {
+        if ($config->catalog === null) {
             return new SyncReport($config->code, SyncStatus::Ok, $counts, 'no catalog driver, config models only');
         }
 
@@ -56,7 +55,7 @@ final class ModelSyncService
         }
 
         try {
-            $found = $catalog->listModels($config);
+            $found = $this->drivers->catalog($config)?->listModels($config) ?? [];
         } catch (ProviderException $e) {
             return new SyncReport($config->code, SyncStatus::Failed, $counts, $e->getMessage());
         }

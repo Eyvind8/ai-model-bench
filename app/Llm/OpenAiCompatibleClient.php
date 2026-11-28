@@ -14,7 +14,10 @@ use Illuminate\Http\Client\PendingRequest;
  */
 final class OpenAiCompatibleClient implements LlmClientInterface
 {
-    public function __construct(private readonly ProviderHttp $http) {}
+    public function __construct(
+        private readonly ProviderHttp $http,
+        private readonly ChatCompletionMapper $mapper,
+    ) {}
 
     public function chat(ProviderConfig $provider, ChatRequest $request): ChatResponse
     {
@@ -30,18 +33,17 @@ final class OpenAiCompatibleClient implements LlmClientInterface
             throw new ProviderException("{$provider->code}: response is not JSON", $response->status());
         }
 
-        // Some providers (OpenRouter) report upstream errors with HTTP 200.
-        if (isset($data['error']) && ! isset($data['choices'])) {
-            $status = (int) (data_get($data, 'error.code') ?: 502);
-            throw $this->http->failure($provider, $status, $response->body(), $response->headers());
+        $errorStatus = $this->mapper->embeddedErrorStatus($data);
+        if ($errorStatus !== null) {
+            throw $this->http->failure($provider, $errorStatus, $response->body(), $response->headers());
         }
 
         return new ChatResponse(
-            content: data_get($data, 'choices.0.message.content'),
-            usage: Usage::fromArray($data['usage'] ?? null),
+            content: $this->mapper->content($data),
+            usage: Usage::fromArray($this->mapper->usage($data)),
             latencyMs: $latencyMs,
             httpStatus: $response->status(),
-            finishReason: data_get($data, 'choices.0.finish_reason'),
+            finishReason: $this->mapper->finishReason($data),
             raw: $data,
         );
     }

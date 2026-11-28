@@ -28,7 +28,7 @@ final class ModelSelector
             ->orderBy('provider_id')
             ->orderBy('model_id')
             ->get()
-            ->filter(fn (LlmModel $model) => $this->matchesAny($model, $refs))
+            ->filter(fn (LlmModel $model) => $this->registry->has($model->provider->code) && $this->matchesAny($model, $refs))
             ->values();
     }
 

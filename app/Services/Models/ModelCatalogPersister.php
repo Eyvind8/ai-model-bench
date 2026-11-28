@@ -25,30 +25,45 @@ final class ModelCatalogPersister
         return $provider->getConnection()->transaction(function () use ($provider, $models, $source) {
             /** @var Collection<string, LlmModel> $existing */
             $existing = $provider->models()->get()->keyBy('model_id');
-            $now = CarbonImmutable::now();
-            $added = $updated = 0;
+            [$added, $updated] = $this->upsertAll($provider, $existing, $models, $source);
 
-            foreach ($models as $info) {
-                $model = $existing->get($info->modelId);
-
-                if ($model === null) {
-                    $this->create($provider, $info, $source, $now);
-                    $added++;
-                } elseif ($this->mayUpdate($model, $source)) {
-                    $this->update($model, $info, $source, $now);
-                    $updated++;
-                }
-            }
-
-            $removed = $this->markMissing($existing, $models, $source);
-
-            return new SyncCounts($added, $updated, $removed);
+            return new SyncCounts($added, $updated, $this->markMissing($existing, $models, $source));
         });
     }
 
+    /**
+     * @param  Collection<string, LlmModel>  $existing
+     * @param  list<ModelInfo>  $models
+     * @return array{int, int} added, updated
+     */
+    private function upsertAll(Provider $provider, Collection $existing, array $models, ModelSource $source): array
+    {
+        $now = CarbonImmutable::now();
+        $added = $updated = 0;
+
+        foreach ($models as $info) {
+            $model = $existing->get($info->modelId);
+
+            if ($model === null) {
+                $this->create($provider, $info, $source, $now);
+                $added++;
+            } elseif ($this->mayUpdate($model, $source)) {
+                $this->update($model, $info, $source, $now);
+                $updated++;
+            }
+        }
+
+        return [$added, $updated];
+    }
+
+    /**
+     * Catalog data never overrides an active config model, but takes over one dropped from config.
+     */
     private function mayUpdate(LlmModel $model, ModelSource $source): bool
     {
-        return ! ($source === ModelSource::Catalog && $model->source === ModelSource::Config);
+        return $source === ModelSource::Config
+            || $model->source === ModelSource::Catalog
+            || ! $model->available;
     }
 
     private function create(Provider $provider, ModelInfo $info, ModelSource $source, CarbonImmutable $now): void

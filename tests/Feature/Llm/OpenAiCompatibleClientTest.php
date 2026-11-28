@@ -123,4 +123,62 @@ class OpenAiCompatibleClientTest extends TestCase
             $this->assertStringNotContainsString('secret-key', (string) $e->responseBody);
         }
     }
+
+    public function test_http_200_error_with_string_rate_limit_code_is_rate_limited(): void
+    {
+        Http::fake(['*' => Http::response(['error' => ['code' => 'rate_limit_exceeded', 'message' => 'slow down']])]);
+
+        try {
+            $this->client()->chat($this->provider(), new ChatRequest('m', []));
+            $this->fail('RateLimitedException expected');
+        } catch (RateLimitedException $e) {
+            $this->assertSame(429, $e->httpStatus);
+        }
+    }
+
+    public function test_http_200_error_with_unknown_code_maps_to_502(): void
+    {
+        Http::fake(['*' => Http::response(['error' => ['code' => 'upstream_failed', 'message' => 'boom']])]);
+
+        try {
+            $this->client()->chat($this->provider(), new ChatRequest('m', []));
+            $this->fail('ProviderException expected');
+        } catch (ProviderException $e) {
+            $this->assertNotInstanceOf(RateLimitedException::class, $e);
+            $this->assertSame(502, $e->httpStatus);
+        }
+    }
+
+    public function test_http_200_error_with_numeric_code_keeps_it(): void
+    {
+        Http::fake(['*' => Http::response(['error' => ['code' => 429, 'message' => 'limit']])]);
+
+        $this->expectException(RateLimitedException::class);
+
+        $this->client()->chat($this->provider(), new ChatRequest('m', []));
+    }
+
+    public function test_content_as_array_of_parts_is_joined(): void
+    {
+        Http::fake(['*' => Http::response([
+            'choices' => [['message' => ['content' => [
+                ['type' => 'text', 'text' => 'po'],
+                ['type' => 'image_url', 'image_url' => ['url' => 'x']],
+                ['type' => 'text', 'text' => 'ng'],
+            ]], 'finish_reason' => 'stop']],
+            'usage' => 'n/a',
+        ])]);
+
+        $response = $this->client()->chat($this->provider(), new ChatRequest('m', []));
+
+        $this->assertSame('pong', $response->content);
+        $this->assertNull($response->usage->promptTokens);
+    }
+
+    public function test_non_string_content_becomes_null(): void
+    {
+        Http::fake(['*' => Http::response(['choices' => [['message' => ['content' => 42]]]])]);
+
+        $this->assertNull($this->client()->chat($this->provider(), new ChatRequest('m', []))->content);
+    }
 }

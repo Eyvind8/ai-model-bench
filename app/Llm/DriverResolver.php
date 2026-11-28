@@ -4,30 +4,33 @@ namespace App\Llm;
 
 use App\Contracts\LlmClientInterface;
 use App\Contracts\ModelCatalogInterface;
-use Illuminate\Contracts\Config\Repository;
-use Illuminate\Contracts\Container\Container;
-use LogicException;
+use App\Llm\Exceptions\UnknownDriverException;
+use App\Support\ConfiguredFactory;
+use App\Support\InvalidConfigurationException;
 
 /**
  * Resolves client/catalog implementations by driver name from bench.drivers.
  */
 final class DriverResolver
 {
-    public function __construct(
-        private readonly Container $container,
-        private readonly Repository $config,
-    ) {}
+    public function __construct(private readonly ConfiguredFactory $factory) {}
 
+    /**
+     * @throws UnknownDriverException
+     */
     public function client(ProviderConfig $provider): LlmClientInterface
     {
-        return $this->make('clients', $provider->driver, LlmClientInterface::class);
+        return $this->make('bench.drivers.clients', $provider->driver, LlmClientInterface::class);
     }
 
+    /**
+     * @throws UnknownDriverException
+     */
     public function catalog(ProviderConfig $provider): ?ModelCatalogInterface
     {
         return $provider->catalog === null
             ? null
-            : $this->make('catalogs', $provider->catalog, ModelCatalogInterface::class);
+            : $this->make('bench.drivers.catalogs', $provider->catalog, ModelCatalogInterface::class);
     }
 
     /**
@@ -36,18 +39,12 @@ final class DriverResolver
      * @param  class-string<T>  $interface
      * @return T
      */
-    private function make(string $kind, string $name, string $interface): object
+    private function make(string $mapKey, string $name, string $interface): object
     {
-        $class = $this->config->get("bench.drivers.{$kind}.{$name}");
-        if (! is_string($class) || $class === '') {
-            throw new LogicException("Driver \"{$name}\" is not registered in bench.drivers.{$kind}");
+        try {
+            return $this->factory->make($mapKey, $name, $interface);
+        } catch (InvalidConfigurationException $e) {
+            throw new UnknownDriverException('Driver '.$e->getMessage(), previous: $e);
         }
-
-        $instance = $this->container->make($class);
-        if (! $instance instanceof $interface) {
-            throw new LogicException("{$class} must implement {$interface}");
-        }
-
-        return $instance;
     }
 }

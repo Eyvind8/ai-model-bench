@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ValidatesProviderOption;
 use App\Llm\ProviderRegistry;
 use App\Models\LlmModel;
+use App\Services\Models\ModelManager;
 use Illuminate\Console\Command;
 
 class ListModelsCommand extends Command
@@ -17,20 +18,14 @@ class ListModelsCommand extends Command
 
     protected $description = 'List stored models';
 
-    public function handle(ProviderRegistry $registry): int
+    public function handle(ProviderRegistry $registry, ModelManager $manager): int
     {
         $provider = $this->providerOption($registry);
         if ($provider === false) {
             return self::FAILURE;
         }
 
-        $models = LlmModel::query()
-            ->with('provider')
-            ->when($provider, fn ($q) => $q->whereHas('provider', fn ($p) => $p->where('code', $provider)))
-            ->when($this->option('enabled'), fn ($q) => $q->where('enabled', true))
-            ->orderBy('provider_id')
-            ->orderBy('model_id')
-            ->get();
+        $models = $manager->list($provider, (bool) $this->option('enabled'));
 
         $this->table(
             ['Ref', 'Name', 'Context', 'JSON', 'Source', 'Enabled', 'Available'],

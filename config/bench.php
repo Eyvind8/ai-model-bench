@@ -4,6 +4,9 @@ use App\Llm\Catalogs\CloudflareCatalog;
 use App\Llm\Catalogs\OpenAiModelsCatalog;
 use App\Llm\Catalogs\OpenRouterCatalog;
 use App\Llm\OpenAiCompatibleClient;
+use App\Metrics\LanguageMatchMetric;
+use App\Metrics\MaxLengthMetric;
+use App\Metrics\ScoreErrorMetric;
 
 return [
 
@@ -136,6 +139,47 @@ return [
                 '@cf/meta/llama-3.3-70b-instruct-fp8-fast' => ['name' => 'Llama 3.3 70B (CF)', 'context_window' => 24000],
             ],
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Auto metrics
+    |--------------------------------------------------------------------------
+    |
+    | name => class implementing MetricInterface. Scenarios reference them by name
+    | (config/scenarios.php `metrics`). New metric = new class + one line here.
+    |
+    */
+    'metrics' => [
+        'max_length' => MaxLengthMetric::class,
+        'score_error' => ScoreErrorMetric::class,
+        'language_match' => LanguageMatchMetric::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Article import by URL
+    |--------------------------------------------------------------------------
+    */
+    'articles' => [
+        'timeout' => 15,
+        'max_bytes' => 5 * 1024 * 1024,
+        'max_redirects' => 5,
+        'min_chars' => 500,
+        'max_chars' => (int) env('BENCH_ARTICLE_MAX_CHARS', 12000),
+        'user_agent' => 'Mozilla/5.0 (compatible; AIModelBench/1.0)',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Retries of transient errors (429, 5xx, timeouts)
+    |--------------------------------------------------------------------------
+    */
+    'retry' => [
+        'max' => (int) env('BENCH_RETRY_MAX', 3),
+        'base_delay_ms' => 2000,
+        'max_delay_ms' => 300_000,
+        'jitter_ms' => 1000,
     ],
 
     /*
