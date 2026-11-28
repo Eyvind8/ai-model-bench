@@ -21,7 +21,8 @@ final class RunRequestFactory
     ) {}
 
     /**
-     * @param  list<string>  $modelPatterns  empty = all enabled models
+     * @param  list<string>  $modelPatterns  empty = all enabled models of configured providers
+     * @param  list<int>|null  $modelIds  explicit selection (UI), wins over patterns
      *
      * @throws InvalidArgumentException
      */
@@ -32,6 +33,7 @@ final class RunRequestFactory
         array $modelPatterns = [],
         int $repeats = 1,
         ?int $limit = null,
+        ?array $modelIds = null,
     ): RunRequest {
         if (($datasetId === null) === ($input === null)) {
             throw new InvalidArgumentException('Pass exactly one of --dataset or --input / --input-file');
@@ -39,7 +41,7 @@ final class RunRequestFactory
 
         return new RunRequest(
             scenario: $this->scenario($scenarioSlug),
-            models: $this->models($modelPatterns),
+            models: $modelIds !== null ? $this->modelsById($modelIds) : $this->models($modelPatterns),
             dataset: $datasetId !== null ? $this->dataset($datasetId) : null,
             adhocInput: $input,
             repeats: $repeats,
@@ -72,6 +74,18 @@ final class RunRequestFactory
         return $models->isEmpty()
             ? throw new InvalidArgumentException('No models selected. Add API keys, use --models or bench:models:enable')
             : $models;
+    }
+
+    /**
+     * @param  list<int>  $ids
+     * @return Collection<int, LlmModel>
+     */
+    private function modelsById(array $ids): Collection
+    {
+        $models = LlmModel::query()->with('provider')->whereKey($ids)->where('available', true)
+            ->orderBy('provider_id')->orderBy('model_id')->get();
+
+        return $models->isEmpty() ? throw new InvalidArgumentException('No models selected') : $models;
     }
 
     /**
