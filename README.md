@@ -66,6 +66,10 @@ paste text for failed downloads, reference labeling with keys 1-9/0), playground
 run page (live progress, per-model summary, latency, score heatmap article x model, answers side by side),
 answer details with 1-5 human rating, CSV export.
 
+Quality (run page, block "Якість"): accuracy vs human reference (MAE, share within ±1, Spearman, bias, top-5 overlap),
+spread between repeats, deviation from the median of models, LLM judge (pick any model; it never rates its own answers;
+agreement with your manual ratings is shown), blind A/B arena with Elo (per run and global on /arena).
+
 ## Typical flow
 
 ```bash
@@ -98,6 +102,8 @@ php artisan bench:run --dataset=|--input=|--input-file= [--scenario=] [--models=
 php artisan bench:report {run}
 php artisan bench:runs
 php artisan bench:limits [--provider=]
+php artisan bench:judge {run} --judge=provider:model [--sync]
+php artisan bench:quality {run}
 ```
 
 Rate limits: per provider+model RPM/RPD/TPM from config, min pause between requests to one provider,

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Evaluation\QualityReportBuilder;
 use App\Http\Requests\RunFormRequest;
 use App\Models\Dataset;
 use App\Models\LlmModel;
@@ -71,16 +72,19 @@ class RunController extends Controller
         return redirect()->route('runs.show', $run)->with('status', "Запитів у черзі: {$queued}");
     }
 
-    public function show(Run $run, RunReportBuilder $reports, RunMatrixBuilder $matrix, RunProgress $progress): View
+    public function show(Run $run, RunReportBuilder $reports, RunMatrixBuilder $matrices, RunProgress $progress, QualityReportBuilder $quality, ModelManager $models): View
     {
         $run->load('dataset');
+        $matrix = $matrices->build($run);
 
         return view('runs.show', [
             'run' => $run,
             'definition' => $run->definition(),
             'counts' => $progress->counts($run),
             'reports' => $reports->build($run),
-            'matrix' => $matrix->build($run),
+            'matrix' => $matrix,
+            'quality' => $quality->build($run, $matrix),
+            'judgeCandidates' => $models->list()->filter(fn (LlmModel $m) => $m->available),
         ]);
     }
 
