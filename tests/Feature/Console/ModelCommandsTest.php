@@ -143,4 +143,44 @@ class ModelCommandsTest extends TestCase
             ->expectsOutputToContain('bench:models:enable')
             ->assertFailed();
     }
+
+    public function test_ping_empty_reply_is_not_ok(): void
+    {
+        Http::fake(['api.groq.com/*' => Http::response([
+            'choices' => [['message' => ['content' => null], 'finish_reason' => 'length']],
+        ])]);
+
+        $this->artisan('bench:models:ping', ['--model' => 'groq:qwen/qwen3-32b'])
+            ->expectsOutputToContain('empty reply | ')
+            ->assertFailed();
+    }
+
+    public function test_ping_rejects_conflicting_provider_and_model(): void
+    {
+        $this->artisan('bench:models:ping', ['--provider' => 'groq', '--model' => 'gemini:x'])
+            ->expectsOutputToContain('conflicts')
+            ->assertFailed();
+    }
+
+    public function test_ping_unknown_driver_is_reported_per_model(): void
+    {
+        $this->useTestProviders(['groq' => ['driver' => 'grpc']]);
+
+        $this->artisan('bench:models:ping', ['--model' => 'groq:qwen/qwen3-32b'])
+            ->expectsOutputToContain('grpc')
+            ->assertFailed();
+    }
+
+    public function test_enable_ignores_providers_removed_from_config(): void
+    {
+        $this->artisan('bench:models:sync')->assertSuccessful();
+        LlmModel::query()->update(['enabled' => false]);
+        config(['bench.providers' => array_diff_key(config('bench.providers'), ['gemini' => true])]);
+
+        $this->artisan('bench:models:enable', ['patterns' => ['*']])
+            ->expectsOutputToContain('Enabled 1 model')
+            ->assertSuccessful();
+
+        $this->assertFalse($this->enabled('gemini-3.5-flash-lite'));
+    }
 }

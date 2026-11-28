@@ -4,9 +4,9 @@ namespace Tests\Feature\Llm;
 
 use App\Llm\Catalogs\OpenRouterCatalog;
 use App\Llm\DriverResolver;
+use App\Llm\Exceptions\UnknownDriverException;
 use App\Llm\OpenAiCompatibleClient;
 use App\Llm\ProviderConfig;
-use LogicException;
 use stdClass;
 use Tests\TestCase;
 
@@ -28,7 +28,7 @@ class DriverResolverTest extends TestCase
 
     public function test_unknown_driver_throws(): void
     {
-        $this->expectException(LogicException::class);
+        $this->expectException(UnknownDriverException::class);
         $this->expectExceptionMessage('not registered');
 
         $this->app->make(DriverResolver::class)->client($this->provider('grpc'));
@@ -38,7 +38,7 @@ class DriverResolverTest extends TestCase
     {
         config(['bench.drivers.clients.bad' => stdClass::class]);
 
-        $this->expectException(LogicException::class);
+        $this->expectException(UnknownDriverException::class);
         $this->expectExceptionMessage('must implement');
 
         $this->app->make(DriverResolver::class)->client($this->provider('bad'));

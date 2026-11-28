@@ -150,4 +150,29 @@ class ModelSyncServiceTest extends TestCase
         $this->assertStringContainsString('401', (string) $reports['groq']->message);
         $this->assertSame(1, LlmModel::query()->count());
     }
+
+    public function test_model_dropped_from_config_is_taken_over_by_catalog(): void
+    {
+        $this->sync();
+        config(['bench.providers.groq.models' => []]);
+        Http::fake(['api.groq.com/*' => Http::response(['data' => [['id' => 'qwen/qwen3-32b']]])]);
+
+        $this->sync('groq', true);
+
+        $qwen = $this->model('qwen/qwen3-32b');
+        $this->assertTrue($qwen->available);
+        $this->assertSame(ModelSource::Catalog, $qwen->source);
+    }
+
+    public function test_unknown_catalog_driver_is_reported_without_crash(): void
+    {
+        config(['bench.providers.groq.catalog' => 'typo']);
+        Http::fake();
+
+        $reports = $this->sync(discover: true);
+
+        $this->assertSame(SyncStatus::Failed, $reports['groq']->status);
+        $this->assertStringContainsString('typo', (string) $reports['groq']->message);
+        $this->assertArrayHasKey('gemini', $reports);
+    }
 }

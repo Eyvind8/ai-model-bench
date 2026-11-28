@@ -45,8 +45,6 @@ final class ProviderRegistry
 
         /** @var array<string, mixed> $settings */
         $settings = $this->config->get("bench.providers.{$code}");
-
-        $apiKey = $this->stringOrNull($settings['api_key'] ?? null);
         [$baseUrl, $accountReason] = $this->resolveBaseUrl($settings);
         $models = $settings['models'] ?? [];
 
@@ -55,7 +53,7 @@ final class ProviderRegistry
             name: (string) ($settings['name'] ?? $code),
             driver: (string) ($settings['driver'] ?? 'openai'),
             baseUrl: $baseUrl,
-            apiKey: $apiKey,
+            apiKey: $this->stringOrNull($settings['api_key'] ?? null),
             catalog: $this->stringOrNull($settings['catalog'] ?? null),
             headers: $settings['headers'] ?? [],
             exclude: $settings['exclude'] ?? [],
@@ -63,10 +61,18 @@ final class ProviderRegistry
             modelLimits: $settings['model_limits'] ?? [],
             models: $this->declaredModels($models),
             declaredModelLimits: array_filter(array_map(fn (array $m) => $m['limits'] ?? [], $models)),
-            unconfiguredReason: $apiKey === null
-                ? ($settings['api_key_env'] ?? 'API key').' is not set'
-                : $accountReason,
+            unconfiguredReason: $this->apiKeyReason($settings) ?? $accountReason,
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    private function apiKeyReason(array $settings): ?string
+    {
+        return $this->stringOrNull($settings['api_key'] ?? null) === null
+            ? ($settings['api_key_env'] ?? 'API key').' is not set'
+            : null;
     }
 
     /**
