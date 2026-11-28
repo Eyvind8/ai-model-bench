@@ -11,15 +11,16 @@ use JsonException;
 final class DatasetFileReader
 {
     /**
+     * @param  string|null  $format  csv|json|jsonl, default: file extension (uploads have none)
      * @return list<array<string, mixed>>
      */
-    public function read(string $path): array
+    public function read(string $path, ?string $format = null): array
     {
         if (! is_file($path) || ! is_readable($path)) {
             throw new InvalidArgumentException("File not found: {$path}");
         }
 
-        return match (strtolower(pathinfo($path, PATHINFO_EXTENSION))) {
+        return match (strtolower($format ?? pathinfo($path, PATHINFO_EXTENSION))) {
             'csv' => $this->csv($path),
             'json' => $this->json((string) file_get_contents($path)),
             'jsonl', 'ndjson' => $this->jsonl((string) file_get_contents($path)),

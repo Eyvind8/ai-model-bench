@@ -59,6 +59,13 @@ Built in: `digest-article` (score 1-10 + announcement up to 200 chars).
 `bench.metrics` in `config/bench.php` maps metric name to class (`max_length`, `score_error`, `language_match`);
 new metric = class implementing `App\Contracts\MetricInterface` + one line. After changes: `make sync`.
 
+## Web UI
+
+http://localhost:8011 - providers and models (enable, sync, ping), scenarios, datasets (URL/file/manual import,
+paste text for failed downloads, reference labeling with keys 1-9/0), playground, new run with request forecast,
+run page (live progress, per-model summary, latency, score heatmap article x model, answers side by side),
+answer details with 1-5 human rating, CSV export.
+
 ## Typical flow
 
 ```bash

@@ -40,4 +40,11 @@ final class ModelManager
 
         return $models;
     }
+
+    public function toggle(LlmModel $model): bool
+    {
+        $model->update(['enabled' => ! $model->enabled]);
+
+        return $model->enabled;
+    }
 }

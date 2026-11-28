@@ -27,12 +27,12 @@ final class DatasetImporter
         private readonly ArticleImporter $articles,
     ) {}
 
-    public function importFile(Dataset $dataset, string $path): DatasetImportReport
+    public function importFile(Dataset $dataset, string $path, ?string $format = null): DatasetImportReport
     {
         $added = $queued = $skipped = 0;
         $errors = [];
 
-        foreach ($this->reader->read($path) as $index => $row) {
+        foreach ($this->reader->read($path, $format) as $index => $row) {
             $line = $index + 1;
             $fields = $this->fields($row);
             $score = $this->score($fields['expected_score'], $line, $errors);
